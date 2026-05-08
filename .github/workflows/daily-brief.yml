@@ -1,9 +1,10 @@
 name: Daily CPO Output
 
 on:
-  # Run every day at 9:00 AM PST (5:00 PM UTC)
+  # Run every day at 9:00 AM PDT (4:00 PM UTC during daylight saving)
+  # Note: Update to '0 17 * * *' during PST (winter) for 9:00 AM PST
   schedule:
-    - cron: '0 17 * * *'
+    - cron: '0 16 * * *'
 
   # Allow manual triggers
   workflow_dispatch:
