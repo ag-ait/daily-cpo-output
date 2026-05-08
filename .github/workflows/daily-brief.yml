@@ -1,0 +1,224 @@
+name: Daily CPO Output
+
+on:
+  # Run every day at 9:00 AM PST (5:00 PM UTC)
+  schedule:
+    - cron: '0 17 * * *'
+
+  # Allow manual triggers
+  workflow_dispatch:
+
+jobs:
+  generate-and-send-brief:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install google-auth-oauthlib google-auth-httplib2 google-api-python-client requests
+
+      - name: Set up Google credentials
+        run: |
+          mkdir -p ~/.google
+          echo '${{ secrets.GOOGLE_CREDENTIALS }}' > ~/.google/credentials.json
+          echo '${{ secrets.GOOGLE_TOKEN }}' | base64 -d > ~/.google/token.pickle
+
+      - name: Fetch Google Calendar and Gmail data
+        id: google_data
+        run: |
+          python3 fetch-google-data.py > google-data.json 2>error.log || echo "FAILED"
+          if [ -f google-data.json ]; then
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            echo "status=failed" >> $GITHUB_OUTPUT
+            echo '{"calendar": [], "inbox": {"unread_count": 0, "vip_emails": []}, "date": "'"$(date '+%A, %B %d, %Y')"'", "error": "Google data unavailable"}' > google-data.json
+          fi
+
+      - name: Generate Chief of Staff Brief
+        id: cos_brief
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
+        run: |
+          GOOGLE_DATA=$(cat google-data.json)
+
+          cat > prompt.txt << 'PROMPT_EOF'
+          You are a Chief of Staff assistant. Generate a concise daily brief based on the following data.
+
+          Today's Google Calendar and Gmail data:
+          PROMPT_EOF
+
+          echo "$GOOGLE_DATA" >> prompt.txt
+
+          cat >> prompt.txt << 'PROMPT_EOF'
+
+          Generate a brief with these sections:
+
+          ## Today's Schedule
+          List all calendar events with times.
+
+          ## Priority Emails
+          Highlight any VIP emails or important messages.
+
+          ## Focus Areas
+          Based on the calendar, suggest 2-3 priorities for today.
+
+          Output ONLY the markdown brief, no explanations.
+          PROMPT_EOF
+
+          curl https://api.anthropic.com/v1/messages \
+            -H "content-type: application/json" \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
+            -H "anthropic-version: 2023-06-01" \
+            -d '{
+              "model": "claude-sonnet-4-20250514",
+              "max_tokens": 2048,
+              "messages": [{
+                "role": "user",
+                "content": "'"$(cat prompt.txt | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')"'"
+              }]
+            }' > cos-response.json
+
+          cat cos-response.json | python3 -c "import sys, json; print(json.load(sys.stdin)['content'][0]['text'])" > cos-brief.md
+
+      - name: Generate Market Intelligence Brief
+        id: market_intel
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
+          NEWS_API_KEY: ${{ secrets.NEWS_API_KEY }}
+        run: |
+          # Fetch news data
+          ./fetch-news.sh > news-data.json
+
+          NEWS_DATA=$(cat news-data.json)
+
+          cat > prompt.txt << 'PROMPT_EOF'
+          You are a market intelligence analyst. Generate a brief based on the latest news.
+
+          News data from the last 24 hours:
+          PROMPT_EOF
+
+          echo "$NEWS_DATA" >> prompt.txt
+
+          cat >> prompt.txt << 'PROMPT_EOF'
+
+          Generate a brief with these sections:
+
+          ## Competitor Updates
+          Key news about OpenAI, Anthropic, Scale AI, Glean
+
+          ## Market Trends
+          Notable industry developments
+
+          ## Strategic Insights
+          What this means for product strategy
+
+          Output ONLY the markdown brief, no explanations.
+          PROMPT_EOF
+
+          curl https://api.anthropic.com/v1/messages \
+            -H "content-type: application/json" \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
+            -H "anthropic-version: 2023-06-01" \
+            -d '{
+              "model": "claude-sonnet-4-20250514",
+              "max_tokens": 2048,
+              "messages": [{
+                "role": "user",
+                "content": "'"$(cat prompt.txt | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')"'"
+              }]
+            }' > market-response.json
+
+          cat market-response.json | python3 -c "import sys, json; print(json.load(sys.stdin)['content'][0]['text'])" > market-intel.md
+
+      - name: Compile Final Brief
+        run: |
+          cat > final-brief.md << 'EOF'
+          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          DAILY CPO OUTPUT
+          EOF
+          echo "$(date '+%A, %B %d, %Y')" >> final-brief.md
+          cat >> final-brief.md << 'EOF'
+          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+          EOF
+
+          cat cos-brief.md >> final-brief.md
+          echo "" >> final-brief.md
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >> final-brief.md
+          echo "" >> final-brief.md
+          cat market-intel.md >> final-brief.md
+
+          cat >> final-brief.md << 'EOF'
+
+          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          Generated by Claude AI (Sonnet 4.5)
+          Automated Daily Briefing | GitHub Actions
+          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          EOF
+
+      - name: Send Email
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: |
+          python3 send-email.py \
+            --to "apurva.garware@gmail.com" \
+            --subject "Daily CPO Output - $(date '+%B %d, %Y')" \
+            --content "$(cat final-brief.md)"
+
+      - name: Upload Brief as Artifact
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: daily-brief-${{ github.run_number }}
+          path: |
+            final-brief.md
+            cos-brief.md
+            market-intel.md
+            google-data.json
+            news-data.json
+          retention-days: 30
+
+      - name: Notify on Failure
+        if: failure()
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: |
+          cat > failure-notification.md << EOF
+          ⚠️ Daily CPO Output - FAILURE ALERT
+
+          Date: $(date '+%A, %B %d, %Y %I:%M %p UTC')
+          Run: ${{ github.run_id }}
+
+          The daily brief generation failed.
+
+          View logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          Common causes:
+          - API key expired
+          - Google OAuth token expired
+          - Network timeout
+          - API rate limit
+
+          Please check the logs and re-run manually if needed.
+          EOF
+
+          python3 send-email.py \
+            --to "apurva.garware@gmail.com" \
+            --subject "⚠️ Daily CPO Output FAILED - $(date '+%B %d, %Y')" \
+            --content "$(cat failure-notification.md)" || true
+
+      - name: Record Metrics
+        if: always()
+        run: |
+          echo "Recording run metrics..."
+          # This will be enhanced to push metrics back to a data store
+          echo "Run completed at $(date)"

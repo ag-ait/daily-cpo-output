@@ -1,0 +1,32 @@
+# Secrets and credentials
+.env
+*.pickle
+credentials.json
+token.json
+
+# Generated files
+*.json
+!package.json
+*.log
+
+# System files
+.DS_Store
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+env/
+
+# Node
+node_modules/
+
+# Test files
+test-*.md
+prompt.txt
+*-response.json
