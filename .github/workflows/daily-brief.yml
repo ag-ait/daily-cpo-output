@@ -192,7 +192,32 @@ jobs:
           ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
           EOF
 
+      - name: Check if email already sent today
+        id: check_sent
+        run: |
+          DATE=$(date '+%Y-%m-%d')
+
+          # Check if we already sent an email today by looking for today's artifacts
+          # Only for scheduled runs - allow manual runs to always send
+          if [ "${{ github.event_name }}" == "schedule" ]; then
+            # Use GitHub API to check for today's successful runs
+            if gh run list --workflow daily-brief.yml --status success --json conclusion,createdAt \
+               --jq '.[] | select(.createdAt | startswith("'$DATE'"))' | head -1 | grep -q "success" 2>/dev/null; then
+              echo "already_sent=true" >> $GITHUB_OUTPUT
+              echo "✅ Email already sent today - skipping duplicate"
+            else
+              echo "already_sent=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            # Manual runs always send
+            echo "already_sent=false" >> $GITHUB_OUTPUT
+            echo "📧 Manual trigger - will send email"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Send Email
+        if: steps.check_sent.outputs.already_sent != 'true'
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
         run: |
