@@ -74,18 +74,31 @@ jobs:
           Output ONLY the markdown brief, no explanations.
           PROMPT_EOF
 
+          # Create JSON request body using Python to avoid argument list length issues
+          python3 << 'PYTHON_EOF' > cos-request.json
+          import json
+          import sys
+
+          with open('prompt.txt', 'r') as f:
+              prompt_content = f.read()
+
+          request = {
+              "model": "claude-sonnet-4-20250514",
+              "max_tokens": 2048,
+              "messages": [{
+                  "role": "user",
+                  "content": prompt_content
+              }]
+          }
+
+          print(json.dumps(request))
+          PYTHON_EOF
+
           curl https://api.anthropic.com/v1/messages \
             -H "content-type: application/json" \
             -H "x-api-key: $ANTHROPIC_API_KEY" \
             -H "anthropic-version: 2023-06-01" \
-            -d '{
-              "model": "claude-sonnet-4-20250514",
-              "max_tokens": 2048,
-              "messages": [{
-                "role": "user",
-                "content": "'"$(cat prompt.txt | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')"'"
-              }]
-            }' > cos-response.json
+            --data-binary @cos-request.json > cos-response.json
 
           cat cos-response.json | python3 -c "import sys, json; print(json.load(sys.stdin)['content'][0]['text'])" > cos-brief.md
 
@@ -124,18 +137,31 @@ jobs:
           Output ONLY the markdown brief, no explanations.
           PROMPT_EOF
 
+          # Create JSON request body using Python to avoid argument list length issues
+          python3 << 'PYTHON_EOF' > market-request.json
+          import json
+          import sys
+
+          with open('prompt.txt', 'r') as f:
+              prompt_content = f.read()
+
+          request = {
+              "model": "claude-sonnet-4-20250514",
+              "max_tokens": 2048,
+              "messages": [{
+                  "role": "user",
+                  "content": prompt_content
+              }]
+          }
+
+          print(json.dumps(request))
+          PYTHON_EOF
+
           curl https://api.anthropic.com/v1/messages \
             -H "content-type: application/json" \
             -H "x-api-key: $ANTHROPIC_API_KEY" \
             -H "anthropic-version: 2023-06-01" \
-            -d '{
-              "model": "claude-sonnet-4-20250514",
-              "max_tokens": 2048,
-              "messages": [{
-                "role": "user",
-                "content": "'"$(cat prompt.txt | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')"'"
-              }]
-            }' > market-response.json
+            --data-binary @market-request.json > market-response.json
 
           cat market-response.json | python3 -c "import sys, json; print(json.load(sys.stdin)['content'][0]['text'])" > market-intel.md
 
