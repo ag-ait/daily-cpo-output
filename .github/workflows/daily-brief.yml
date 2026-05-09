@@ -52,10 +52,9 @@ jobs:
           GOOGLE_DATA=$(cat google-data.json)
 
           cat > prompt.txt << 'PROMPT_EOF'
-          You are a Chief of Staff assistant. Generate a concise daily brief for TODAY based on the following data.
+          You are a Chief of Staff assistant. Generate TODAY's calendar schedule based on the following data.
 
           IMPORTANT: The data below is for TODAY (the current date shown in the 'date' field).
-          Do NOT reference yesterday or any other day.
 
           Today's Google Calendar and Gmail data:
           PROMPT_EOF
@@ -64,20 +63,17 @@ jobs:
 
           cat >> prompt.txt << 'PROMPT_EOF'
 
-          Generate a brief with these sections:
+          Output TODAY's calendar schedule in this exact format:
 
           ## Today's Schedule
-          List all calendar events for TODAY with times. If there are no events, say "No events scheduled for today."
 
-          ## Priority Emails
-          Highlight any VIP emails or important unread messages.
+          List all calendar events for TODAY with their times. Format each event as:
+          - **[TIME]** - [EVENT NAME]
 
-          ## Focus Areas
-          Based on TODAY's calendar, suggest 2-3 priorities for today.
+          If there are no events, output:
+          - No events scheduled for today
 
-          CRITICAL: Use ONLY the data provided above. The calendar events shown are for TODAY.
-
-          Output ONLY the markdown brief, no explanations.
+          Output ONLY the schedule section in markdown format, no other commentary or sections.
           PROMPT_EOF
 
           # Create JSON request body using Python to avoid argument list length issues
@@ -129,28 +125,32 @@ jobs:
 
           cat >> prompt.txt << 'PROMPT_EOF'
 
-          Generate a brief with these sections. IMPORTANT: You MUST include source URLs for every claim.
+          Generate today's market intelligence brief with these sections:
 
-          ## Competitor Updates
-          Key news about OpenAI, Anthropic, Scale AI, Glean.
-          For each update, include the source as a markdown link: [Article Title](URL)
-          Format: - **Company Name**: Brief summary. [Read more](URL)
+          ## Market
 
-          ## Market Trends
-          Notable industry developments with source citations.
-          Format: - Brief summary of trend. [Source](URL)
+          ### Competitor Updates
+          List key news about OpenAI, Anthropic, Scale AI, and Glean.
+          Format each item as:
+          - **[Company]**: [Brief summary]. [Read more]([URL])
 
-          ## Strategic Insights
-          What this means for product strategy, based on the cited sources above.
+          ### Industry Trends
+          List notable industry developments.
+          Format each item as:
+          - [Brief summary]. [Source]([URL])
+
+          ### Strategic Takeaway
+          One sentence on what this means for product strategy.
 
           CRITICAL REQUIREMENTS:
-          - Every news item MUST have a clickable source link
+          - EVERY news item MUST have a clickable source link with URL
           - Use markdown link format: [text](URL)
-          - Extract URLs from the articles array in the news data
-          - If no relevant news found, state "No significant news in the past 24 hours"
-          - Do NOT make up or hallucinate news without sources
+          - Extract actual URLs from the articles array in the news data
+          - If no relevant news found for a company, skip that company
+          - If no news at all, output: "No significant market news in the past 24 hours"
+          - Do NOT make up or hallucinate news without verified sources
 
-          Output ONLY the markdown brief, no explanations.
+          Output ONLY the Market section with subsections as shown above. No explanations.
           PROMPT_EOF
 
           # Create JSON request body using Python to avoid argument list length issues
@@ -181,30 +181,87 @@ jobs:
 
           cat market-response.json | python3 -c "import sys, json; print(json.load(sys.stdin)['content'][0]['text'])" > market-intel.md
 
+      - name: Generate Executive Summary
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
+        run: |
+          # Combine context for executive summary
+          cat > exec-summary-prompt.txt << 'PROMPT_EOF'
+          You are a Chief of Staff. Generate a brief executive summary for today.
+
+          Here is today's schedule:
+          PROMPT_EOF
+
+          cat cos-brief.md >> exec-summary-prompt.txt
+
+          cat >> exec-summary-prompt.txt << 'PROMPT_EOF'
+
+          Here is today's market intelligence:
+          PROMPT_EOF
+
+          cat market-intel.md >> exec-summary-prompt.txt
+
+          cat >> exec-summary-prompt.txt << 'PROMPT_EOF'
+
+          Generate a concise executive summary (2-3 sentences max) that:
+          1. Highlights the most important meeting/event from the schedule
+          2. Mentions the key market trend or competitor news
+          3. Provides a brief strategic takeaway
+
+          Format:
+          ## Executive Summary
+          [Your 2-3 sentence summary here]
+
+          Output ONLY the Executive Summary section, nothing else.
+          PROMPT_EOF
+
+          # Create JSON request
+          python3 << 'PYTHON_EOF' > exec-request.json
+          import json
+          with open('exec-summary-prompt.txt', 'r') as f:
+              prompt_content = f.read()
+          request = {
+              "model": "claude-sonnet-4-20250514",
+              "max_tokens": 512,
+              "messages": [{"role": "user", "content": prompt_content}]
+          }
+          print(json.dumps(request))
+          PYTHON_EOF
+
+          curl https://api.anthropic.com/v1/messages \
+            -H "content-type: application/json" \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
+            -H "anthropic-version: 2023-06-01" \
+            --data-binary @exec-request.json > exec-response.json
+
+          cat exec-response.json | python3 -c "import sys, json; print(json.load(sys.stdin)['content'][0]['text'])" > exec-summary.md
+
       - name: Compile Final Brief
         run: |
+          # Create header
           cat > final-brief.md << 'EOF'
-          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          DAILY CPO OUTPUT
+          # Daily CPO Output
           EOF
-          echo "$(date '+%A, %B %d, %Y')" >> final-brief.md
-          cat >> final-brief.md << 'EOF'
-          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          echo "**$(date '+%A, %B %d, %Y')**" >> final-brief.md
+          echo "" >> final-brief.md
 
-          EOF
+          # 1. Executive Summary
+          cat exec-summary.md >> final-brief.md
+          echo "" >> final-brief.md
 
+          # 2. Today's Schedule
           cat cos-brief.md >> final-brief.md
           echo "" >> final-brief.md
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >> final-brief.md
-          echo "" >> final-brief.md
-          cat market-intel.md >> final-brief.md
 
+          # 3. Market Intelligence
+          cat market-intel.md >> final-brief.md
+          echo "" >> final-brief.md
+
+          # Footer
           cat >> final-brief.md << 'EOF'
 
-          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          Generated by Claude AI (Sonnet 4.5)
-          Automated Daily Briefing | GitHub Actions
-          ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+          ---
+          *Generated by Claude AI (Sonnet 4.5) | Automated Daily Briefing*
           EOF
 
       - name: Check if email already sent today
@@ -248,6 +305,7 @@ jobs:
           name: daily-brief-${{ github.run_number }}
           path: |
             final-brief.md
+            exec-summary.md
             cos-brief.md
             market-intel.md
             google-data.json
