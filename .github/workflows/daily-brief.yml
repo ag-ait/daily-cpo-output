@@ -25,7 +25,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install google-auth-oauthlib google-auth-httplib2 google-api-python-client requests
+          pip install google-auth-oauthlib google-auth-httplib2 google-api-python-client requests pytz
 
       - name: Set up Google credentials
         run: |
@@ -52,7 +52,10 @@ jobs:
           GOOGLE_DATA=$(cat google-data.json)
 
           cat > prompt.txt << 'PROMPT_EOF'
-          You are a Chief of Staff assistant. Generate a concise daily brief based on the following data.
+          You are a Chief of Staff assistant. Generate a concise daily brief for TODAY based on the following data.
+
+          IMPORTANT: The data below is for TODAY (the current date shown in the 'date' field).
+          Do NOT reference yesterday or any other day.
 
           Today's Google Calendar and Gmail data:
           PROMPT_EOF
@@ -64,13 +67,15 @@ jobs:
           Generate a brief with these sections:
 
           ## Today's Schedule
-          List all calendar events with times.
+          List all calendar events for TODAY with times. If there are no events, say "No events scheduled for today."
 
           ## Priority Emails
-          Highlight any VIP emails or important messages.
+          Highlight any VIP emails or important unread messages.
 
           ## Focus Areas
-          Based on the calendar, suggest 2-3 priorities for today.
+          Based on TODAY's calendar, suggest 2-3 priorities for today.
+
+          CRITICAL: Use ONLY the data provided above. The calendar events shown are for TODAY.
 
           Output ONLY the markdown brief, no explanations.
           PROMPT_EOF
@@ -124,16 +129,26 @@ jobs:
 
           cat >> prompt.txt << 'PROMPT_EOF'
 
-          Generate a brief with these sections:
+          Generate a brief with these sections. IMPORTANT: You MUST include source URLs for every claim.
 
           ## Competitor Updates
-          Key news about OpenAI, Anthropic, Scale AI, Glean
+          Key news about OpenAI, Anthropic, Scale AI, Glean.
+          For each update, include the source as a markdown link: [Article Title](URL)
+          Format: - **Company Name**: Brief summary. [Read more](URL)
 
           ## Market Trends
-          Notable industry developments
+          Notable industry developments with source citations.
+          Format: - Brief summary of trend. [Source](URL)
 
           ## Strategic Insights
-          What this means for product strategy
+          What this means for product strategy, based on the cited sources above.
+
+          CRITICAL REQUIREMENTS:
+          - Every news item MUST have a clickable source link
+          - Use markdown link format: [text](URL)
+          - Extract URLs from the articles array in the news data
+          - If no relevant news found, state "No significant news in the past 24 hours"
+          - Do NOT make up or hallucinate news without sources
 
           Output ONLY the markdown brief, no explanations.
           PROMPT_EOF

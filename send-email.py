@@ -11,36 +11,50 @@ import requests
 from datetime import datetime
 
 def markdown_to_html(markdown_text):
-    """Simple markdown to HTML conversion"""
-    html = markdown_text
-
-    # Headers
-    html = html.replace('\n## ', '\n<h2>').replace('\n###', '\n<h3>')
-    lines = html.split('\n')
-    result = []
-    for line in lines:
-        if line.startswith('<h2>'):
-            result.append(line.replace('<h2>', '<h2>') + '</h2>')
-        elif line.startswith('<h3>'):
-            result.append(line.replace('<h3>', '<h3>') + '</h3>')
-        else:
-            result.append(line)
-    html = '\n'.join(result)
-
-    # Bold
+    """Improved markdown to HTML conversion with better formatting"""
     import re
-    html = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', html)
 
-    # Line breaks
-    html = html.replace('\n\n', '</p><p>')
-    html = '<p>' + html + '</p>'
+    # Split into paragraphs (separated by double newlines)
+    paragraphs = markdown_text.split('\n\n')
+    html_parts = []
 
-    # Clean up
-    html = html.replace('<p></p>', '')
-    html = html.replace('<p><h2>', '<h2>').replace('</h2></p>', '</h2>')
-    html = html.replace('<p><h3>', '<h3>').replace('</h3></p>', '</h3>')
+    for para in paragraphs:
+        para = para.strip()
+        if not para:
+            continue
 
-    return html
+        # Headers
+        if para.startswith('## '):
+            content = para[3:].strip()
+            html_parts.append(f'<h2>{content}</h2>')
+        elif para.startswith('### '):
+            content = para[4:].strip()
+            html_parts.append(f'<h3>{content}</h3>')
+        # Bullet lists
+        elif para.startswith('- ') or para.startswith('* '):
+            items = para.split('\n')
+            list_html = '<ul>'
+            for item in items:
+                if item.strip().startswith(('- ', '* ')):
+                    content = item.strip()[2:]
+                    # Process bold within list items
+                    content = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', content)
+                    # Process links within list items
+                    content = re.sub(r'\[(.+?)\]\((.+?)\)', r'<a href="\2">\1</a>', content)
+                    list_html += f'<li>{content}</li>'
+            list_html += '</ul>'
+            html_parts.append(list_html)
+        # Regular paragraphs
+        else:
+            # Replace single newlines with spaces (they're within a paragraph)
+            para = para.replace('\n', ' ')
+            # Process bold
+            para = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', para)
+            # Process links
+            para = re.sub(r'\[(.+?)\]\((.+?)\)', r'<a href="\2">\1</a>', para)
+            html_parts.append(f'<p>{para}</p>')
+
+    return '\n'.join(html_parts)
 
 def send_email(to, subject, content):
     """Send email via Resend API"""

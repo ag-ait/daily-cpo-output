@@ -74,14 +74,20 @@ def fetch_calendar_events(creds):
     def _fetch():
         service = build('calendar', 'v3', credentials=creds)
 
-        # Get today's date range
-        now = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        end_of_day = now + timedelta(days=1)
+        # Get today's date range in UTC (GitHub Actions runs in UTC)
+        # But we want to fetch events for "today" in the user's local timezone
+        # So we need to be explicit about which day we're fetching
+        import pytz
+
+        # Use Pacific timezone for "today"
+        pacific = pytz.timezone('America/Los_Angeles')
+        now_pacific = datetime.now(pacific).replace(hour=0, minute=0, second=0, microsecond=0)
+        end_of_day_pacific = now_pacific + timedelta(days=1)
 
         events_result = service.events().list(
             calendarId='primary',
-            timeMin=now.isoformat() + 'Z',
-            timeMax=end_of_day.isoformat() + 'Z',
+            timeMin=now_pacific.isoformat(),
+            timeMax=end_of_day_pacific.isoformat(),
             singleEvents=True,
             orderBy='startTime'
         ).execute()
@@ -176,11 +182,15 @@ def main():
         calendar_events = fetch_calendar_events(creds)
         inbox_data = fetch_gmail_inbox(creds)
 
-        # Output JSON
+        # Output JSON with date in Pacific timezone
+        import pytz
+        pacific = pytz.timezone('America/Los_Angeles')
+        now_pacific = datetime.now(pacific)
+
         output = {
             "calendar": calendar_events,
             "inbox": inbox_data,
-            "date": datetime.now().strftime('%A, %B %d, %Y')
+            "date": now_pacific.strftime('%A, %B %d, %Y')
         }
 
         print(json.dumps(output, indent=2))
