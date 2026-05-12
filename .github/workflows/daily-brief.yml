@@ -85,7 +85,7 @@ jobs:
               prompt_content = f.read()
 
           request = {
-              "model": "claude-sonnet-4-20250514",
+              "model": "claude-sonnet-4-6",
               "max_tokens": 2048,
               "messages": [{
                   "role": "user",
@@ -162,7 +162,7 @@ jobs:
               prompt_content = f.read()
 
           request = {
-              "model": "claude-sonnet-4-20250514",
+              "model": "claude-sonnet-4-6",
               "max_tokens": 2048,
               "messages": [{
                   "role": "user",
@@ -221,7 +221,7 @@ jobs:
           with open('exec-summary-prompt.txt', 'r') as f:
               prompt_content = f.read()
           request = {
-              "model": "claude-sonnet-4-20250514",
+              "model": "claude-sonnet-4-6",
               "max_tokens": 512,
               "messages": [{"role": "user", "content": prompt_content}]
           }
