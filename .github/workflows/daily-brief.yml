@@ -163,7 +163,7 @@ jobs:
 
           request = {
               "model": "claude-sonnet-4-6",
-              "max_tokens": 2048,
+              "max_tokens": 4096,
               "messages": [{
                   "role": "user",
                   "content": prompt_content
@@ -203,15 +203,16 @@ jobs:
 
           cat >> exec-summary-prompt.txt << 'PROMPT_EOF'
 
-          Generate a concise executive summary (2-3 sentences max) that:
-          1. Highlights the most important meeting/event from the schedule
-          2. Mentions the key market trend or competitor news
-          3. Provides a brief strategic takeaway
+          Generate a concise executive summary in EXACTLY 3 SHORT SENTENCES:
+          - Sentence 1: The most important meeting/event from today's schedule
+          - Sentence 2: The single most important market trend or competitor news
+          - Sentence 3: One strategic takeaway
 
           Format:
           ## Executive Summary
-          [Your 2-3 sentence summary here]
+          [Sentence 1]. [Sentence 2]. [Sentence 3].
 
+          CRITICAL: Use simple, declarative sentences. No semicolons, no em-dashes, no run-ons.
           Output ONLY the Executive Summary section, nothing else.
           PROMPT_EOF
 
