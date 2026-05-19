@@ -249,7 +249,21 @@ jobs:
             -H "anthropic-version: 2023-06-01" \
             --data-binary @exec-request.json > exec-response.json
 
-          cat exec-response.json | python3 -c "import sys, json; print(json.load(sys.stdin)['content'][0]['text'])" > exec-summary.md
+          # Extract response with error handling
+          python3 << 'PYTHON_EOF' > exec-summary.md
+          import sys, json
+          with open('exec-response.json', 'r') as f:
+              response = json.load(f)
+
+          if 'content' in response:
+              print(response['content'][0]['text'])
+          elif 'error' in response:
+              print(f"## Executive Summary\nAPI Error: {response['error'].get('message', 'Unknown error')}", file=sys.stderr)
+              print("## Executive Summary\nUnable to generate summary due to API error.")
+          else:
+              print(f"Unexpected API response: {json.dumps(response)}", file=sys.stderr)
+              print("## Executive Summary\nUnable to generate summary due to unexpected API response.")
+          PYTHON_EOF
 
       - name: Compile Final Brief
         run: |
