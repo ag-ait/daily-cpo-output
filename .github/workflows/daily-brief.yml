@@ -217,17 +217,15 @@ jobs:
           - NO subordinate clauses (avoid "which", "that", "while", "after", etc.)
           - NO lists or multiple items in one sentence
           - ONE idea per sentence only
-          - Start with: ## Executive Summary
+          - Output ONLY the 3 sentences (no "## Executive Summary" heading)
 
           Good example (each sentence is simple and under 20 words):
-          ## Executive Summary
           Today's board meeting will address Q2 revenue targets. OpenAI announced a major Microsoft partnership. Enterprise AI adoption is accelerating rapidly.
 
           Bad example (sentences are too long with multiple clauses):
-          ## Executive Summary
           Today's board meeting will focus on Q2 revenue targets, which are critical for investor confidence. OpenAI announced a major partnership with Microsoft, positioning them ahead of competitors. This development, along with recent AI advances, suggests we need to accelerate our enterprise strategy.
 
-          Now generate the actual executive summary based on the schedule and market intelligence provided above. Keep each sentence simple and under 20 words.
+          Now generate the 3 sentences based on the schedule and market intelligence provided above. Output only the sentences with no markdown heading.
           PROMPT_EOF
 
           # Create JSON request
@@ -249,20 +247,27 @@ jobs:
             -H "anthropic-version: 2023-06-01" \
             --data-binary @exec-request.json > exec-response.json
 
-          # Extract response with error handling
+          # Extract response with error handling and remove heading
           python3 << 'PYTHON_EOF' > exec-summary.md
           import sys, json
           with open('exec-response.json', 'r') as f:
               response = json.load(f)
 
           if 'content' in response:
-              print(response['content'][0]['text'])
+              content = response['content'][0]['text']
+              # Remove the ## Executive Summary heading line
+              lines = content.strip().split('\n')
+              if lines and lines[0].strip() == '## Executive Summary':
+                  # Skip the heading, keep the rest
+                  print('\n'.join(lines[1:]).strip())
+              else:
+                  print(content)
           elif 'error' in response:
-              print(f"## Executive Summary\nAPI Error: {response['error'].get('message', 'Unknown error')}", file=sys.stderr)
-              print("## Executive Summary\nUnable to generate summary due to API error.")
+              print(f"API Error: {response['error'].get('message', 'Unknown error')}", file=sys.stderr)
+              print("Unable to generate summary due to API error.")
           else:
               print(f"Unexpected API response: {json.dumps(response)}", file=sys.stderr)
-              print("## Executive Summary\nUnable to generate summary due to unexpected API response.")
+              print("Unable to generate summary due to unexpected API response.")
           PYTHON_EOF
 
       - name: Compile Final Brief
@@ -274,7 +279,9 @@ jobs:
           echo "**$(date '+%A, %B %d, %Y')**" >> final-brief.md
           echo "" >> final-brief.md
 
-          # 1. Executive Summary
+          # 1. Executive Summary (as bold text, not heading)
+          echo "**Executive Summary**" >> final-brief.md
+          echo "" >> final-brief.md
           cat exec-summary.md >> final-brief.md
           echo "" >> final-brief.md
 
