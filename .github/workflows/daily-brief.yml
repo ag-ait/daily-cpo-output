@@ -204,16 +204,22 @@ jobs:
           cat >> exec-summary-prompt.txt << 'PROMPT_EOF'
 
           Generate a concise executive summary in EXACTLY 3 SHORT SENTENCES:
-          - Sentence 1: The most important meeting/event from today's schedule
-          - Sentence 2: The single most important market trend or competitor news
-          - Sentence 3: One strategic takeaway
+          1. First sentence: Identify the most important meeting or event from today's schedule
+          2. Second sentence: Highlight the single most important market trend or competitor news
+          3. Third sentence: Provide one strategic takeaway
 
-          Format:
+          Output format requirements:
+          - Start with: ## Executive Summary
+          - Follow with 3 complete sentences, each ending with a period
+          - Write actual content sentences, not placeholders or brackets
+          - Use simple, declarative sentences with NO semicolons, NO em-dashes, NO run-ons
+          - Each sentence should be direct and factual
+
+          Example format (replace with actual content):
           ## Executive Summary
-          [Sentence 1]. [Sentence 2]. [Sentence 3].
+          Today's board meeting will focus on Q2 revenue targets. OpenAI announced a major partnership with Microsoft. This positions competitors to accelerate enterprise AI adoption.
 
-          CRITICAL: Use simple, declarative sentences. No semicolons, no em-dashes, no run-ons.
-          Output ONLY the Executive Summary section, nothing else.
+          Now generate the actual executive summary based on the schedule and market intelligence provided above.
           PROMPT_EOF
 
           # Create JSON request
