@@ -203,23 +203,31 @@ jobs:
 
           cat >> exec-summary-prompt.txt << 'PROMPT_EOF'
 
-          Generate a concise executive summary in EXACTLY 3 SHORT SENTENCES:
-          1. First sentence: Identify the most important meeting or event from today's schedule
-          2. Second sentence: Highlight the single most important market trend or competitor news
-          3. Third sentence: Provide one strategic takeaway
+          Generate a concise executive summary in EXACTLY 3 SHORT SENTENCES.
 
-          Output format requirements:
+          Requirements:
+          1. First sentence: State the most important meeting or event from today's schedule (max 20 words)
+          2. Second sentence: Highlight ONE key market or competitor development (max 20 words)
+          3. Third sentence: Provide ONE strategic takeaway (max 20 words)
+
+          CRITICAL CONSTRAINTS:
+          - Each sentence must be under 20 words
+          - Use simple subject-verb-object structure
+          - NO compound sentences with commas joining multiple clauses
+          - NO subordinate clauses (avoid "which", "that", "while", "after", etc.)
+          - NO lists or multiple items in one sentence
+          - ONE idea per sentence only
           - Start with: ## Executive Summary
-          - Follow with 3 complete sentences, each ending with a period
-          - Write actual content sentences, not placeholders or brackets
-          - Use simple, declarative sentences with NO semicolons, NO em-dashes, NO run-ons
-          - Each sentence should be direct and factual
 
-          Example format (replace with actual content):
+          Good example (each sentence is simple and under 20 words):
           ## Executive Summary
-          Today's board meeting will focus on Q2 revenue targets. OpenAI announced a major partnership with Microsoft. This positions competitors to accelerate enterprise AI adoption.
+          Today's board meeting will address Q2 revenue targets. OpenAI announced a major Microsoft partnership. Enterprise AI adoption is accelerating rapidly.
 
-          Now generate the actual executive summary based on the schedule and market intelligence provided above.
+          Bad example (sentences are too long with multiple clauses):
+          ## Executive Summary
+          Today's board meeting will focus on Q2 revenue targets, which are critical for investor confidence. OpenAI announced a major partnership with Microsoft, positioning them ahead of competitors. This development, along with recent AI advances, suggests we need to accelerate our enterprise strategy.
+
+          Now generate the actual executive summary based on the schedule and market intelligence provided above. Keep each sentence simple and under 20 words.
           PROMPT_EOF
 
           # Create JSON request
